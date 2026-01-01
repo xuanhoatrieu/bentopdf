@@ -6,7 +6,7 @@ ARG BASE_URL=
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
-# COPY vendor ./vendor
+COPY vendor ./vendor
 RUN npm ci
 COPY . .
 
@@ -37,7 +37,7 @@ LABEL org.opencontainers.image.url="https://github.com/xuanhoatrieu/bentopdf"
 ARG BASE_URL
 
 COPY --chown=nginx:nginx --from=builder /app/dist /usr/share/nginx/html${BASE_URL%/}
-# COPY --chown=nginx:nginx nginx.conf /etc/nginx/nginx.conf
+COPY --chown=nginx:nginx nginx.conf /etc/nginx/nginx.conf
 RUN mkdir -p /etc/nginx/tmp && chown -R nginx:nginx /etc/nginx/tmp
 
 EXPOSE 8080
