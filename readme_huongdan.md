@@ -1,125 +1,131 @@
-### PHẦN 1: TẠI MÁY TÍNH CÁ NHÂN (LOCAL)
+# Hướng dẫn Triển khai BentoPDF (Custom UI)
 
-*Mục tiêu: Sửa code, test và đẩy lên GitHub.*
+> Dự án sử dụng **CI/CD tự động**: Khi push code lên GitHub, GitHub Actions sẽ tự build Docker image và đẩy lên GitHub Container Registry (GHCR). Server chỉ cần pull image mới về.
 
-**Bước 1: Lấy code về (Nếu chưa có hoặc muốn làm mới)**
-Mở Terminal/CMD tại thư mục muốn lưu dự án:
+---
+
+## PHẦN 1: SỬA CODE & PUSH (Máy tính cá nhân)
+
+### Bước 1: Lấy code về (Lần đầu hoặc máy mới)
 
 ```bash
-# Clone dự án từ GitHub CỦA BẠN (nhánh custom-ui)
 git clone -b custom-ui https://github.com/xuanhoatrieu/bentopdf.git
-
-# Vào thư mục
 cd bentopdf
-
-# Cài đặt thư viện để test (chỉ làm 1 lần đầu)
 npm install
-
 ```
 
-**Bước 2: Sửa code và Test**
+### Bước 2: Sửa code & Test
 
-* Dùng VS Code sửa giao diện (file `src/index.html`, `src/ui.ts`...).
-* Sửa `Dockerfile` (nếu cần thay đổi cấu hình build).
-* Chạy thử xem ổn chưa: `npm run dev` (Truy cập `localhost:3000`).
+- Sửa giao diện: `index.html`, `src/ui.ts`...
+- Chạy thử: `npm run dev` → truy cập `localhost:3000`
 
-**Bước 3: Lưu và Đẩy lên GitHub**
-Sau khi sửa xong, chạy lần lượt 3 lệnh:
+### Bước 3: Push lên GitHub
 
 ```bash
-# 1. Thêm tất cả file đã sửa vào danh sách chờ
 git add .
-
-# 2. Lưu lại với ghi chú (thay nội dung trong ngoặc kép cho phù hợp)
-git commit -m "Sửa giao diện ngày 01/01/2026"
-
-# 3. Đẩy lên GitHub của bạn
+git commit -m "Mô tả thay đổi"
 git push origin custom-ui
+```
 
+Sau khi push, vào **GitHub → Actions** kiểm tra workflow **"Build & Deploy Custom UI"** chạy thành công ✅ (khoảng 3-5 phút).
+
+---
+
+## PHẦN 2: CẬP NHẬT TRÊN SERVER (Đã cài sẵn)
+
+### Cách 1: Dùng Portainer (Giao diện web)
+
+1. Đăng nhập **Portainer** → **Stacks** → chọn stack **bentopdf**
+2. Bấm **Update the stack**
+3. ✅ **BẬT** tùy chọn **"Pull latest image"**
+4. Bấm **Update** → Xong!
+
+### Cách 2: Dùng Terminal (SSH)
+
+```bash
+cd ~/bentopdf    # hoặc thư mục chứa docker-compose.yml
+
+# Pull image mới từ GHCR
+docker compose pull
+
+# Khởi động lại container với image mới
+docker compose up -d
 ```
 
 ---
 
-### PHẦN 2: TẠI SERVER (SSH)
+## PHẦN 3: CÀI ĐẶT TRÊN SERVER MỚI
 
-*Mục tiêu: Lấy code mới về server và đóng gói thành Image.*
-
-**Bước 1: Kết nối SSH vào Server**
+### Bước 1: Cài Docker & Docker Compose
 
 ```bash
-ssh user@ip-server-cua-ban
+# Cài Docker
+curl -fsSL https://get.docker.com | sh
 
+# Thêm user hiện tại vào group docker (khỏi cần sudo)
+sudo usermod -aG docker $USER
+
+# Đăng xuất rồi đăng nhập lại để có hiệu lực
+exit
 ```
 
-**Bước 2: Đồng bộ code mới nhất**
-Chúng ta dùng lệnh `reset --hard` để đảm bảo code server giống hệt GitHub, tránh xung đột file.
+### Bước 2: Đăng nhập GHCR (Nếu repo private)
+
+Tạo **Personal Access Token** trên GitHub: **Settings → Developer settings → Personal access tokens → Fine-grained tokens** (quyền **Packages: Read**).
 
 ```bash
-# Vào thư mục dự án
-cd ~/my-bentopdf (hoặc đường dẫn bạn đã lưu)
-
-# Tải code mới về
-git fetch origin
-
-# Ép code hiện tại giống hệt nhánh custom-ui trên GitHub
-git reset --hard origin/custom-ui
-
+echo "YOUR_TOKEN" | docker login ghcr.io -u xuanhoatrieu --password-stdin
 ```
 
-**Bước 3: Build Docker Image mới**
+> Nếu repo **public** thì bỏ qua bước này.
+
+### Bước 3: Tạo thư mục & file docker-compose
 
 ```bash
-# Build image với tên 'bentopdf-custom'
-docker build -t bentopdf-custom .
+mkdir -p ~/bentopdf && cd ~/bentopdf
 
-```
-
-*Chờ đến khi chạy xong và báo thành công.*
-
----
-
-### PHẦN 3: TRÊN PORTAINER (WEB)
-
-*Mục tiêu: Cập nhật Website đang chạy sang Image vừa build.*
-
-**Bước 1: Mở Stack cũ**
-
-1. Đăng nhập Portainer -> Chọn **Stacks**.
-2. Bấm vào Stack **bentopdf** của bạn.
-3. Chọn tab **Editor**.
-
-**Bước 2: Kiểm tra cấu hình (YAML)**
-Đảm bảo file cấu hình đang dùng đúng Image custom của bạn (nếu đã sửa lần trước rồi thì không cần sửa lại):
-
-```yaml
+cat > docker-compose.yml << 'EOF'
 version: "3.8"
 services:
   bentopdf:
-    image: bentopdf-custom:latest   # <-- Quan trọng: Phải là tên này
+    image: ghcr.io/xuanhoatrieu/bentopdf-custom:latest
     container_name: bentopdf
     ports:
-      - "3000:8080"                  # Cổng Host : Cổng Container
-    pull_policy: never               # <-- Quan trọng: Không tải từ mạng
+      - "3300:8080"
     restart: unless-stopped
-
+EOF
 ```
 
-**Bước 3: Cập nhật (Update)**
+### Bước 4: Chạy
 
-1. Kéo xuống dưới cùng, bấm nút **Update the stack**.
-2. 🔴 **LƯU Ý QUAN TRỌNG:** Khi popup hiện ra, hãy **GẠT TẮT** (Disable) tùy chọn **"Pull latest image"** (hoặc "Re-pull image").
-* *Vì image nằm sẵn trên máy (Local build), nếu bật Pull nó sẽ tìm trên mạng và báo lỗi.*
+```bash
+docker compose up -d
+```
 
-
-3. Bấm **Update**.
-
-**Bước 4: Tận hưởng**
-Truy cập web của bạn (ví dụ `http://IP-Server:3000`) và kiểm tra thay đổi.
+Truy cập `http://IP-Server:3300` → Xong! 🎉
 
 ---
 
-### Mẹo nhỏ (Troubleshooting)
+## Tóm tắt Quy trình hàng ngày
 
-* **Nếu quên mật khẩu GitHub khi push:** Hãy thiết lập SSH Key cho GitHub trên máy tính cá nhân để không phải nhập mật khẩu.
-* **Nếu Build lỗi `npm ci`:** Nhớ kiểm tra trong `Dockerfile` xem đã đổi thành `RUN npm install` chưa (như chúng ta đã sửa hôm nay).
-* **Nếu web không lên:** Kiểm tra lại Log trong Portainer xem nó báo lỗi gì (thường là do sai Port `80` hay `8080`).
+```
+Sửa code → git push origin custom-ui
+                    ↓
+        GitHub Actions tự build (3-5 phút)
+                    ↓
+        Server: docker compose pull && docker compose up -d
+        hoặc Portainer: Update stack (bật Pull)
+                    ↓
+              Website cập nhật ✅
+```
+
+---
+
+## Troubleshooting
+
+| Vấn đề | Giải pháp |
+|---------|-----------|
+| GitHub Actions lỗi | Vào **Actions** tab → xem log chi tiết |
+| `docker pull` bị denied | Kiểm tra đã `docker login ghcr.io` chưa |
+| Web không lên | `docker logs bentopdf` để xem lỗi |
+| Port bị chiếm | Đổi `3300` thành port khác trong docker-compose.yml |

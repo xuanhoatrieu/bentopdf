@@ -1,9 +1,8 @@
+version: "3.8"
 services:
   bentopdf:
-    # simple mode - bentopdf/bentopdf-simple:latest
-    # default mode - bentopdf/bentopdf:latest
-    image: bentopdf/bentopdf-simple:latest
+    image: ghcr.io/xuanhoatrieu/bentopdf-custom:latest
     container_name: bentopdf
-    restart: unless-stopped
     ports:
-      - '8080:8080'
+      - "3300:8080"
+    restart: unless-stopped
